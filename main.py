@@ -8,19 +8,17 @@ def main():
   mon_put=PutOption(100,1,5.0)
 
   #Scénarios de prix à l'échéance (S_T)
-<<<<<<< HEAD
-  prix_finaux=np.array([80, 90, 100, 110, 120])
-=======
   S_T=np.array([80, 90, 100, 110, 120])
->>>>>>> b8ac6be4697328e157da429d2c817e149c68d6cc
+
 
   #Calcul des payoffs
   gains_call=mon_call.payoff(S_T)
   gains_put=mon_put.payoff(S_T)
 
   #Calcul des P&L
-  pnl_call = mon_call.profit(S_T)
-  pnl_put = mon_put.profit(S_T)
+  pnl_call=gains_call-mon_call.P
+  pnl_put=gains_put-mon_put.P
+  
   
   #Affichage des résultats
   print(f"Prix du marché : {S_T}")
