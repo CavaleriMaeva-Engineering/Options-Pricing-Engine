@@ -17,13 +17,15 @@ class Option (ABC):
     self.P=premium
 
   @abstractmethod
-  def payoff(self,s_T) :
+  def payoff(self,spot) :
     """
     Calcule le gain brut à l'échéance.
     Méthode implémentée par les classes filles.
 
     Args : 
-      s_T : prix spot de l'actif à l'échéance
+      spot : 
+          - Si l'option est Vanille : on attend un simple nombre (le prix final).
+          - Si l'option est Exotique : on attend un tableau (le chemin des prix).
 
     Returns : 
       Le gain positif ou nul généré par l'exercice de l'option.
