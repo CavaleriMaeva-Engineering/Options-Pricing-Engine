@@ -1,9 +1,11 @@
 import numpy as np
 from core.vanilla import CallOption, PutOption
 from core.exotic import AsianOption, BarrierOption, LookBackOption, ChooserOption, BinaryOption, ForwardStartOption
+from core.simulator import GBMSimulator
 from matplotlib import pyplot as plt
 
 def main() :
+    ##PARTIE 1 : TEST UNITAIRE
     
     #Création d'une trajectoire de prix fictive
     price_path = np.array([100, 102, 104, 108, 107, 112, 115, 113, 110, 112])
@@ -55,6 +57,32 @@ def main() :
         except Exception as e:
             print(f"{name:<25} | ERREUR : {e}")
     print("=" * 65)
+    
+    ##PARTIE 2 : PRICING MONTE-CARLO
+    print("\nPRICING PAR MONTE-CARLO (Simulation Stochastique)")
+    
+    #Configuration du simulateur
+    S0=100
+    r=0.05
+    sigma=0.20
+    T=1.0
+    num_steps=252
+    num_sim=100000 
 
+    sim=GBMSimulator(S0,r,sigma,T,num_steps,num_sim)
+    
+    # On génère la matrice de prix (100 000 lignes)
+    simulated_paths = sim.simulate_paths()
+    
+    # Si je veux le prix d'un Asian Call aujourd'hui :
+    mon_asiatique=AsianOption(strike=105,expiry=T,is_call=True)
+    
+    #On calcule le payoff pour TOUTES les trajectoires simulées
+    #Pour le moment, testons sur la première trajectoire simulée :
+    premier_scenario=simulated_paths[0] 
+    payoff_simule = mon_asiatique.payoff(premier_scenario)
+    
+    print(f"Gain sur le scénario n°1 : {payoff_simule:.2f}")
+    
 if __name__=="__main__":
   main()
