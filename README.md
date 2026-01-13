@@ -1,53 +1,58 @@
 # Option-Pricing-Analytics-Lab
-**Quantitative Finance laboratory for Option Payoff modeling and Risk Analytics.**
+**Quantitative Finance library for Multi-Model Option Pricing and Risk Analytics.**
 
 ## 1. Presentation
-This project was developed during my second year at **Télécom SudParis** as an advanced extension of my derivative studies. Following the `Forward-Arbitrage-Lab`, which focused on linear instruments, this library builds a robust **Payoff & P&L Engine** for non-linear derivatives.
+This project was developed during my second year at **Télécom SudParis**. It marks a significant evolution from linear derivatives to non-linear instruments. This library implements a high-performance engine capable of valuing both **European Vanilla** and **Path-Dependent Exotic** options using two distinct methodologies:
+*   **Numerical Methods**: Monte-Carlo simulation based on Geometric Brownian Motion (GBM).
+*   **Analytical Methods**: Black-Scholes closed-form solutions for model validation.
 
-The objective is to provide a modular and vectorized framework to evaluate financial outcomes for both **European Vanilla** options and **Path-Dependent Exotic** structures.
+## 2. Pricing Methodologies
 
-## 2. Theoretical Framework
-The library is engineered to handle the mathematical complexity of different exercise logics:
+### A. Numerical: Monte-Carlo Engine
+To value complex Path-Dependent options (Asian, Barrier, Lookback), the engine simulates thousands of possible market scenarios using the **Geometric Brownian Motion (GBM)** stochastic process:
 
-### A. Path-Independent (Vanilla Options)
-The payoff depends strictly on the underlying asset price at maturity $S_T$:
-*   **European Call**: $\max(0, S_T - K)$
-*   **European Put**: $\max(0, K - S_T)$
+$$ dS_t = r S_t dt + \sigma S_t dW_t $$
 
-### B. Path-Dependent (Exotic Options)
-The gain is a function of the entire price path $\{S_t\}_{t \in [0,T]}$ observed during the life of the contract:
-*   **Asian Options**: Mitigate spot volatility using arithmetic or geometric averages.
-*   **Barrier Options**: Activation (**Knock-in**) or deactivation (**Knock-out**) logic based on price thresholds ($H$).
-*   **Lookback Options**: "Zero-regret" structures using historical extrema ($S_{max}$ or $S_{min}$) as reference.
-*   **Chooser Options**: Provides the holder the right to choose the option type (Call/Put) at an intermediate date.
-*   **Binary (Digital) Options**: "All-or-nothing" payoffs based on a binary condition.
-*   **Forward Start Options**: Exotic structures where the strike price is determined at a future fixing date.
-
-### C. Risk Analytics: Net P&L Profile
-The engine evaluates the **Net Profit & Loss** by subtracting the option's cost (Premium) from the final payoff:
+The fair value is obtained by computing the discounted expected payoff under the risk-neutral measure:
 
 $$
-PNL = Payoff(S_t) - Premium
+Price = e^{-rT} E [ Payoff(S_t) ]
 $$
 
-## 3. Implementation Details
-*   **Architecture**: Full Object-Oriented Programming (OOP) using **Abstract Base Classes (ABC)** to ensure a unified interface across all derivatives.
-*   **Vectorization**: Intensive use of **NumPy** for high-performance path analysis (Max, Min, Mean), simulating professional quantitative development standards.
-*   **Numerical Stability**: Implementation of the **Log-mean-exp trick** for Geometric Asian options to prevent arithmetic overflow on long time-series.
-*   **Polymorphism**: The core engine treats all derivatives as generic `Option` objects, allowing for seamless portfolio benchmarking through a single execution hub.
+### B. Analytical: Black-Scholes Benchmark
+For Vanilla options, the engine implements the closed-form Black-Scholes formula to serve as a precision benchmark (Gold Standard) to validate the convergence of the Monte-Carlo paths.
 
-## 4. Project Structure
+## 3. Supported Instruments
+*   **Vanilla**: European Calls & Puts.
+*   **Asians**: Arithmetic and Geometric averages (mitigating spot volatility).
+*   **Barriers**: Knock-in and Knock-out logic (Up/Down directions).
+*   **Lookback**: Fixed and Floating strikes (capturing historical extrema).
+*   **Chooser**: Dynamic switching between Call/Put at intermediate dates.
+*   **Forward Start**: Strike determination at future fixing dates.
+
+## 4. Technical Implementation & Numerical Stability
+*   **Vectorized Computation**: Full use of **NumPy** to process 100,000+ paths simultaneously, avoiding Python overhead and ensuring industrial-grade performance.
+*   **Numerical Stability**: Implementation of the **Log-mean-exp trick** for Geometric Asian options to prevent floating-point overflow during large-scale simulations.
+*   **Abstract Architecture**: Use of Abstract Base Classes (ABC) and Polymorphism, allowing the `MonteCarloPricer` to value any instrument via a unified interface.
+
+## 5. Sample Output & Convergence Validation
+The engine provides a comparative report to verify model accuracy:
+
+| PRODUCT NAME                        | MC FAIR VALUE | ANALYTICAL (BS) | DIFF    |
+|-------------------------------------|---------------|-----------------|---------|
+| Vanilla Call                        | 10.4521       | 10.4503         | 0.0018  |
+| Asian Call (Geo)                    | 5.2104        | N/A             | N/A     |
+| Lookback Call (Fixed)               | 18.3241       | N/A             | N/A     |
+
+## 6. Project Structure
 ```text
 core/
-├── base.py       # Abstract interface & Shared Analytics (P&L logic)
-├── vanilla.py    # Standard European Call/Put implementations
-└── exotic.py     # Advanced Path-Dependent derivatives (6 classes)
-main.py           # Multi-product benchmarking and testing hub
+├── base.py       # Abstract interface & Common Analytics (PNL)
+├── vanilla.py    # European standard pricing (MC + Black-Scholes)
+├── exotic.py     # Path-Dependent logic for 6 exotic families
+├── simulator.py  # GBM Stochastic trajectory engine
+└── pricer.py     # Monte-Carlo valuation hub
 ```
-## 5. Development Roadmap
-* **Phase 1**: Implementation of the 6 major Exotic families and P&L modeling.
-* **Phase 2**: Integration of a Monte Carlo Simulator (Geometric Brownian Motion) to compute the fair value (Price) of exotic contracts.
-* **Phase 3**: Greeks calculation (Delta, Gamma, Vega) for exotic risk monitoring.
 
 ## Career Objective
 Aspiring **Quantitative Researcher / Developer**. Currently seeking an internship in Quantitative Finance starting in **Fall 2026**. I am focused on bridging the gap between advanced mathematical models and high-performance software implementation.
