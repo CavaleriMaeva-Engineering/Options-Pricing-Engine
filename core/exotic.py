@@ -1,5 +1,5 @@
 import numpy as np 
-from .base import Option
+from core.base import Option
 
 class AsianOption(Option) :
     """
@@ -26,9 +26,9 @@ class AsianOption(Option) :
         """
        #Calcul de la valeur de référence (moyenne des prix observés)
         if self.average_type=='arithmetic' :
-            moyenne=np.mean(spot)
+            moyenne=np.mean(spot,axis=1)
         elif self.average_type=='geometric' :
-            moyenne=np.exp(np.mean(np.log(spot)))
+            moyenne=np.exp(np.mean(np.log(spot),axis=1))
         #Calcul du gain final selon la direction du contrat (Call ou Put)
         if self.is_call :
             return np.maximum(0,moyenne-self.K)
@@ -52,9 +52,9 @@ class BarrierOption(Option) :
     def payoff(self,spot) :
         #Détermine si la barrière a été franchie
         if self.is_up :
-            has_hit_barrier=np.max(spot)>=self.barrier
+            has_hit_barrier=np.max(spot,axis=1)>=self.barrier
         else :
-            has_hit_barrier=np.min(spot)<=self.barrier
+            has_hit_barrier=np.min(spot,axis=1)<=self.barrier
             
         #Détermine si l'option est vivante 
         #Si knock_in seulement si la barrière est franchie
@@ -62,16 +62,15 @@ class BarrierOption(Option) :
         if self.is_knock_in :
             is_active=has_hit_barrier
         else :
-            is_active=not has_hit_barrier
+            is_active=~has_hit_barrier #~ équivalent à not pour un tableau
         
         #Calcul du payoff 
-        if is_active :
-            if self.is_call :
-                return np.maximum(0,spot[-1]-self.K)
-            else :
-                return np.maximum(0,self.K-spot[-1])
+        last_prices=spot[:,-1]
+        if self.is_call :
+            payoff_si_vivante=np.maximum(0,last_prices-self.K)
         else :
-            return 0.0
+            payoff_si_vivante=np.maximum(0,self.K-last_prices)
+        return np.where(is_active,payoff_si_vivante,0.0)
             
             
 class LookBackOption(Option) :
@@ -93,14 +92,15 @@ class LookBackOption(Option) :
     def payoff(self,spot) :
         if self.type_option=='Fixe' :
             if self.is_call :
-                return np.maximum(0,np.max(spot)-self.K)
+                return np.maximum(0,np.max(spot,axis=1)-self.K)
             else :
-                return np.maximum(0,self.K-np.min(spot))
+                return np.maximum(0,self.K-np.min(spot,axis=1))
         elif self.type_option=='Flottant' :
+            s_final=spot[:,-1]
             if self.is_call :
-                return spot[-1]-np.min(spot)
+                return s_final-np.min(spot,axis=1)
             else :
-                return np.max(spot)-spot[-1]
+                return np.max(spot,axis=1)-s_final
 
 class ChooserOption(Option) :
     """
@@ -117,11 +117,11 @@ class ChooserOption(Option) :
         self.choice_index=choice_index
     
     def payoff(self,spot):
-        price_at_choice=spot[self.choice_index]
-        if price_at_choice>self.K :
-            return np.maximum(0,spot[-1]-self.K)
-        else :
-            return np.maximum(0,self.K-spot[-1])
+        price_at_choice=spot[:,self.choice_index]
+        s_final=spot[:,-1]
+        call_payoff=np.maximum(0,s_final-self.K)
+        put_payoff=np.maximum(0,self.K-s_final)
+        return np.where(price_at_choice>self.K,call_payoff,put_payoff)
             
 
 class BinaryOption(Option) :
@@ -137,16 +137,11 @@ class BinaryOption(Option) :
         self.is_call=is_call
         
     def payoff(self,spot) :
+        s_final=spot[:,-1]
         if self.is_call :
-            if spot[-1]>self.K :
-                return self.payout
-            else :
-                return 0
-        else :
-            if self.K>spot[-1] :
-                return self.payout
-            else :
-                return 0
+            return np.where(s_final>self.K,self.payout,0.0)
+        else:
+            return np.where(s_final<self.K,self.payout,0.0)
             
     
 class ForwardStartOption(Option) :
@@ -163,11 +158,12 @@ class ForwardStartOption(Option) :
         
         
     def payoff(self,spot) :
-        K_dynamique=spot[self.fixing_index]
+        s_final=spot[:,-1]
+        K_dynamique=spot[:,self.fixing_index]
         if self.is_call :
-            return np.maximum(0,spot[-1]-K_dynamique)
+            return np.maximum(0,s_final-K_dynamique)
         else :
-            return np.maximum(0,K_dynamique-spot[-1])
+            return np.maximum(0,K_dynamique-s_final)
         
         
         

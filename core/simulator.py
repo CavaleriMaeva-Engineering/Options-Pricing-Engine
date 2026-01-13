@@ -2,10 +2,22 @@ import numpy as np
 
 class GBMSimulator :
     """
-    Cette classe
+    Simulateur de trajectoires de prix basé sur le modèle du Mouvement Brownien Géométrique (GBM).
+    
+    Ce simulateur génère des scénarios de prix futurs dans un univers 'risque-neutre',
+    où le drift de l'actif correspond au taux sans risque (r).
     """
     
     def __init__(self,S0,r,sigma,T,num_steps,num_simulations) :
+        """
+        Args : 
+            - S0 (float): Prix initial de l'actif (Spot à t=0).
+            - r (float): Taux d'intérêt sans risque annuel (continu).
+            - sigma (float): Volatilité annuelle du sous-jacent.
+            - T (float): Temps total jusqu'à l'échéance (en années).
+            - num_steps (int): Nombre de pas de temps (discrétisation).
+            - num_simulations (int): Nombre de scénarios à générer.
+        """
         self.S0=S0
         self.r=r
         self.sigma=sigma

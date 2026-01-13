@@ -1,88 +1,84 @@
 import numpy as np
-from core.vanilla import CallOption, PutOption
-from core.exotic import AsianOption, BarrierOption, LookBackOption, ChooserOption, BinaryOption, ForwardStartOption
+import matplotlib.pyplot as plt
+from core.vanilla import CallOption
+from core.exotic import AsianOption,BarrierOption,LookBackOption,ChooserOption,BinaryOption,ForwardStartOption
 from core.simulator import GBMSimulator
-from matplotlib import pyplot as plt
+from core.pricer import MonteCarloPricer
 
-def main() :
-    ##PARTIE 1 : TEST UNITAIRE
+def main():
+    #CONFIGURATION DU MARCHÉ 
+    S0,r,sigma,T=100.0,0.05,0.20,1.0
+    K=100.0
+    num_sim=100000 #100k pour une bonne convergence
     
-    #Création d'une trajectoire de prix fictive
-    price_path = np.array([100, 102, 104, 108, 107, 112, 115, 113, 110, 112])
-    
-    #Paramètres de tests communs
-    K=105        
-    T=1         
-    H=114       
-    
-    #Création d'un portfolio d'options de test
-    portfolio=[
-        CallOption(strike=K,expiry=T,premium=5.0),
-        PutOption(strike=K,expiry=T,premium=5.0),
-        
-        AsianOption(strike=K,expiry=T,is_call=True,average_type='arithmetic'),
-        AsianOption(strike=K,expiry=T,is_call=True,average_type='geometric'),
-        
-        #Up-and-Out Call : Meurt si on touche 114 (ce qui arrive au jour 7 avec 115)
-        BarrierOption(strike=K,expiry=T,barrier=H,is_knock_in=False,is_up=True),
-        
-        LookBackOption(strike=K,expiry=T,type_option='Fixe',is_call=True),
-        LookBackOption(strike=None,expiry=T,type_option='Flottant',is_call=True),
-        
-        #Le choix se fait à l'index 4 (prix=107)
-        ChooserOption(strike=K, expiry=T, choice_index=4),
-        
-        BinaryOption(strike=K, expiry=T, payout=50.0, is_call=True),
-        
-        #Le strike se fixe à l'index 2 (prix=104)
-        ForwardStartOption(expiry=T,fixing_index=2,is_call=True)
+    sim=GBMSimulator(S0,r,sigma,T,num_steps=252,num_simulations=num_sim)
+
+    #DÉFINITION DES PRODUITS (On veut comparer leur valeur relative)
+    portfolio = [
+        ("Vanilla Call", CallOption(K,T)),
+        ("Asian Call (Arith)", AsianOption(K,T,average_type='arithmetic')),
+        ("Asian Call (Geo)", AsianOption(K,T,average_type='geometric')),
+        ("Barrier Call (Up-and-Out H=120)", BarrierOption(K,T,barrier=120,is_knock_in=False)),
+        ("Lookback Call (Fixed Strike)", LookBackOption(K,T,type_option='Fixe')),
+        ("Binary Call (Payout=10)", BinaryOption(K,T,payout=10.0)),
     ]
-    
-    #Boucle de test
-    print("=" * 65)
-    print(f"TRAJECTOIRE DE TEST : {price_path}")
-    print(f"STRIKE DE RÉFÉRENCE : {K}")
-    print("=" * 65)
-    print(f"{'TYPE OPTION':<25} | {'PAYOFF':<10} | {'P&L NET':<10}")
-    print("-" * 65)
-    
-    for option in portfolio:
-        category = "Vanilla" if "vanilla" in option.__module__ else "Exotic"
-        name = option.__class__.__name__
-        full_display_name = f"{category} {name}"
-        try:
-            payoff_brut=option.payoff(price_path)
-            pnl_net=option.calculate_pnl(price_path)
-            print(f"{full_display_name:<25} | {payoff_brut:>10.2f} | {pnl_net:>10.2f}")
-        except Exception as e:
-            print(f"{name:<25} | ERREUR : {e}")
-    print("=" * 65)
-    
-    ##PARTIE 2 : PRICING MONTE-CARLO
-    print("\nPRICING PAR MONTE-CARLO (Simulation Stochastique)")
-    
-    #Configuration du simulateur
-    S0=100
-    r=0.05
-    sigma=0.20
-    T=1.0
-    num_steps=252
-    num_sim=100000 
 
-    sim=GBMSimulator(S0,r,sigma,T,num_steps,num_sim)
+    print("="*95)
+    print(f"REPORT: DERIVATIVE VALUATION ENGINE | S0={S0} | r={r} | sigma={sigma} | T={T}")
+    print("="*95)
+    print(f"{'PRODUCT NAME':<35} | {'MC FAIR VALUE':<15} | {'ANALYTICAL (BS)':<15} | {'DIFFERENCE'}")
+    print("-"*95)
+
+    for name, option in portfolio:
+        #Calcul par Monte-Carlo
+        pricer_mc=MonteCarloPricer(option,sim)
+        mc_price=pricer_mc.price()
+        
+        #Calcul Analytique (uniquement pour la Vanille pour valider le moteur)
+        bs_price_string="N/A"
+        difference="N/A"
+        if name=="Vanilla Call":
+            bs_price=option.price_black_scholes(S0,r,sigma)
+            bs_price_string=f"{bs_price:.4f}"
+            difference=f"{abs(mc_price - bs_price):.4f}"
+
+        print(f"{name:<35} | {mc_price:>15.4f} | {bs_price_string:>15} | {difference}")
+
+    print("-"*95)
+    print("NOTES D'ANALYSE :")
+    print("1. Le prix du Call Vanille sert de benchmark pour valider la convergence de Monte-Carlo.")
+    print("2. L'option Asiatique doit être moins chère que la Vanille (lissage de la volatilité).")
+    print("3. La Lookback doit être l'option la plus chère (protection contre le regret).")
+    print("4. La Barrier Out doit être moins chère que la Vanille (risque d'extinction).")
+    print("="*95)
     
-    # On génère la matrice de prix (100 000 lignes)
-    simulated_paths=sim.simulate_paths()
+    #VISUALISATION (Le graphique des trajectoires)
+    print("\nGénération du graphique des trajectoires...")
     
-    # Si je veux le prix d'un Asian Call aujourd'hui :
-    mon_asiatique=AsianOption(strike=105,expiry=T,is_call=True)
+    #On récupère quelques trajectoires (les 50 premières)
+    paths = sim.simulate_paths()
+    plot_paths = paths[:50] 
+
+    plt.figure(figsize=(12,7))
     
-    #On calcule le payoff pour TOUTES les trajectoires simulées
-    #Pour le moment, testons sur la première trajectoire simulée :
-    premier_scenario=simulated_paths[0] 
-    payoff_simule = mon_asiatique.payoff(premier_scenario)
+    #On trace les trajectoires simulées
+    plt.plot(plot_paths.T,alpha=0.4,lw=1)
     
-    print(f"Gain sur le scénario n°1 : {payoff_simule:.2f}")
+    #On trace la moyenne des trajectoires (la tendance centrale)
+    plt.plot(np.mean(paths,axis=0),color='black',lw=3,label='Moyenne attendue (Drift)')
     
-if __name__=="__main__":
-  main()
+    #On ajoute les niveaux clés
+    plt.axhline(S0,color='blue',linestyle='--',label='Prix initial S0')
+    plt.axhline(K, color='red',linestyle='-',label='Strike K')
+    plt.axhline(125,color='orange',linestyle=':',label='Barrière H (Up-and-Out)')
+
+    plt.title(f"Simulation Monte-Carlo : 50 scénarios basés sur le GBM",fontsize=14)
+    plt.xlabel("Pas de temps (Jours)",fontsize=12)
+    plt.ylabel("Prix de l'actif sous-jacent (€)",fontsize=12)
+    plt.legend(loc='upper left')
+    plt.grid(True,alpha=0.2)
+    
+    plt.show()
+
+if __name__ == "__main__":
+    main()
